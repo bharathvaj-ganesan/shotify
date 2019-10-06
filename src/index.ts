@@ -25,10 +25,10 @@ interface ToolbarPosition {
     };
 }
 
-class ShotHelper {
+class AnnotationHelper {
     public container: HTMLDivElement;
-    public shots: Annotation[] = [];
-    public lastShotId: number = 0;
+    public annotations: Annotation[] = [];
+    public annotationId: number = 0;
 }
 
 export default class Shotify {
@@ -47,7 +47,7 @@ export default class Shotify {
 
     private html2canvasOptions: HTML2CanvasOptions;
     private options: ShotOptions;
-    private shotHelper: ShotHelper;
+    private annotationHelper: AnnotationHelper;
 
     constructor(options: ShotOptions) {
         this.setOptions(options);
@@ -74,29 +74,78 @@ export default class Shotify {
         const rootContainer: HTMLDivElement = document.createElement("div");
         this.rootContainer = rootContainer;
 
-        const shotHelpersContainer: HTMLDivElement = document.createElement("div");
-        shotHelpersContainer.style.width = `${document.documentElement.scrollWidth}px`;
-        shotHelpersContainer.style.height = `${document.documentElement.scrollHeight}px`;
-        this.shotHelper.container = shotHelpersContainer;
+        const annotationHelpersContainer: HTMLDivElement = document.createElement("div");
+        annotationHelpersContainer.style.width = `${document.documentElement.scrollWidth}px`;
+        annotationHelpersContainer.style.height = `${document.documentElement.scrollHeight}px`;
+        this.annotationHelper.container = annotationHelpersContainer;
 
         const drawingContainer: HTMLCanvasElement = document.createElement("canvas");
         drawingContainer.width = document.documentElement.scrollWidth;
         drawingContainer.height = document.documentElement.scrollHeight;
         this.drawingContainer = drawingContainer;
         this.drawingCTX = this.drawingContainer.getContext("2d");
+        document.addEventListener("mousedown", this.drawStartListener);
+        document.addEventListener("mouseup", this.drawStopListener);
+        document.addEventListener("mousemove", this.drawListener);
         window.addEventListener("resize", this.resizeHelpers);
         this.resetDrawBoard();
 
         document.body.appendChild(this.rootContainer);
     }
 
+    private drawStartListener(event: MouseEvent) {
+        if (this.isDrawingAllowed) {
+            this.isDrawing = true;
+            this.area = {
+                x: event.clientX + document.documentElement.scrollLeft,
+                y: event.clientY + document.documentElement.scrollTop,
+                width: 0,
+                height: 0
+            };
+        }
+    }
+
+    private drawStopListener(event: MouseEvent) {
+        if (this.isDrawingAllowed) {
+            this.isDrawing = false;
+
+            // TODO: need to check these magic numbers
+            if (Math.abs(this.area.width) < 6 || Math.abs(this.area.height) < 6) {
+                return;
+            }
+
+            // const annotation: Annotation = {
+            //     ...this.area,
+            //     highlight: this._state.highlight,
+            //     index: this._helperIdx++
+            // };
+
+            // if (helper.width < 0) {
+            //     helper.startX += helper.width;
+            //     helper.width *= -1;
+            // }
+
+            // if (helper.height < 0) {
+            //     helper.startY += helper.height;
+            //     helper.height *= -1;
+            // }
+
+            this.resetArea();
+            // this._helperElements.push(this._createHelper(helper));
+            // this._helpers.push(helper);
+            this.repaint();
+        }
+    }
+
+    private drawListener() {}
+
     private setScrollPositions() {
         const x = -document.documentElement.scrollLeft;
         const y = -document.documentElement.scrollTop;
         this.drawingContainer.style.left = `${x}px`;
         this.drawingContainer.style.top = `${y}px`;
-        this.shotHelper.container.style.left = `${x}px`;
-        this.shotHelper.container.style.top = `${y}px`;
+        this.annotationHelper.container.style.left = `${x}px`;
+        this.annotationHelper.container.style.top = `${y}px`;
     }
 
     private resizeHelpers() {
@@ -104,8 +153,9 @@ export default class Shotify {
         const width = document.documentElement.scrollWidth;
         this.drawingContainer.height = height;
         this.drawingContainer.width = width;
-        this.shotHelper.container.style.height = `${height}px`;
-        this.shotHelper.container.style.width = `${width}px`;
+        this.annotationHelper.container.style.height = `${height}px`;
+        this.annotationHelper.container.style.width = `${width}px`;
+        this.repaint();
     }
 
     private resetDrawBoard() {
@@ -133,9 +183,15 @@ export default class Shotify {
             ...this.fetchCurrWindowProps()
         };
 
+        while (this.previewContainer.firstChild) {
+            this.previewContainer.removeChild(this.previewContainer.firstChild);
+        }
+
+        this.repaint(false);
         html2canvas(document.body, this.html2canvasOptions).then((canvas: HTMLCanvasElement) => {
             this.previewCanvas = canvas;
             this.options.previewContainer.appendChild(canvas);
+            this.repaint();
         });
     }
 
@@ -165,6 +221,57 @@ export default class Shotify {
     private reset() {
         this.resetArea();
         this.resetState();
-        this.shotHelper = new ShotHelper();
+        this.annotationHelper = new AnnotationHelper();
+    }
+
+    private repaint(includeHighlights: boolean = true) {
+        this.resetDrawBoard();
+        if (includeHighlights) {
+            this.paintHighlightLines();
+        }
+        this.paintArea();
+        this.paintArea(AnnotationType.Blackout);
+    }
+
+    private paintHighlightLines() {
+        this.annotationHelper.annotations.forEach((annotation: Annotation) => {
+            if (annotation.type === AnnotationType.Highlight) {
+                const { x, y, height, width } = annotation;
+                this.paintLines(x, y, width, height);
+            }
+        });
+    }
+
+    private paintLines(x: number, y: number, width: number, height: number) {
+        if (this.drawingCTX) {
+            this.drawingCTX.strokeStyle = "#ffeb3b";
+            this.drawingCTX.lineJoin = "bevel";
+            this.drawingCTX.lineWidth = 4;
+            this.drawingCTX.strokeRect(x, y, width, height);
+            this.drawingCTX.lineWidth = 1;
+        }
+    }
+
+    private paintArea(annotationType: AnnotationType = AnnotationType.Highlight) {
+        this.annotationHelper.annotations.forEach((annotation: Annotation) => {
+            const { x, y, width, height } = annotation;
+            if (annotation.type === annotationType) {
+                this.drawingCTX && this.drawingCTX.clearRect(x, y, width, height);
+            } else {
+                if (this.drawingCTX) {
+                    this.drawingCTX.fillStyle = "rgba(0,0,0,1)";
+                    this.drawingCTX.fillRect(x, y, width, height);
+                }
+            }
+        });
+    }
+
+    destroy() {
+        this.reset();
+        window.removeEventListener("resize", this.resizeHelpers);
+        document.removeEventListener("mousedown", this.drawStartListener);
+        document.removeEventListener("mouseup", this.drawStopListener);
+        document.removeEventListener("mousemove", this.drawListener);
+        document.body.removeChild(this.rootContainer);
     }
 }
