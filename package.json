@@ -2,15 +2,15 @@
     "name": "shotify",
     "version": "0.0.1",
     "description": "Allow users to give feedback with highlighted screenshots",
-    "module": "lib/main.es.js",
-    "main": "lib/main.js",
-    "typings": "lib/main.d.ts",
+    "module": "lib/index.es.js",
+    "main": "lib/index.js",
+    "types": "lib/index.d.ts",
     "author": "Bharathvaj Ganesan <bharathvaj1995@gmail.com>",
     "license": "MIT",
     "devDependencies": {
-        "rollup": "^1.23.1",
-        "rollup-plugin-typescript2": "^0.24.3",
-        "typescript": "^3.6.3"
+        "rollup": "1.23.1",
+        "rollup-plugin-typescript2": "0.24.3",
+        "typescript": "3.6.3"
     },
     "files": [
         "lib"
@@ -19,5 +19,8 @@
         "prepare": "npm run build",
         "build": "rollup -c",
         "watch": "rollup -cw"
+    },
+    "dependencies": {
+        "html2canvas": "1.0.0-rc.5"
     }
 }
