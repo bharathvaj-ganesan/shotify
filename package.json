@@ -4,5 +4,8 @@
   "description": "Allow users to give feedback with highlighted screenshots",
   "main": "index.js",
   "author": "bharathvaj1995@gmail.com",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^3.6.3"
+  }
 }
