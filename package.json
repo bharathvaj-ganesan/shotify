@@ -1,8 +1,23 @@
 {
-  "name": "shotify",
-  "version": "0.0.1",
-  "description": "Allow users to give feedback with highlighted screenshots",
-  "main": "index.js",
-  "author": "bharathvaj1995@gmail.com",
-  "license": "MIT"
+    "name": "shotify",
+    "version": "0.0.1",
+    "description": "Allow users to give feedback with highlighted screenshots",
+    "module": "lib/main.es.js",
+    "main": "lib/main.js",
+    "typings": "lib/main.d.ts",
+    "author": "Bharathvaj Ganesan <bharathvaj1995@gmail.com>",
+    "license": "MIT",
+    "devDependencies": {
+        "rollup": "^1.23.1",
+        "rollup-plugin-typescript2": "^0.24.3",
+        "typescript": "^3.6.3"
+    },
+    "files": [
+        "lib"
+    ],
+    "scripts": {
+        "prepare": "npm run build",
+        "build": "rollup -c",
+        "watch": "rollup -cw"
+    }
 }
