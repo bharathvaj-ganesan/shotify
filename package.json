@@ -2,7 +2,7 @@
     "name": "shotify",
     "version": "0.0.1",
     "description": "Allow users to give feedback with highlighted screenshots",
-    "module": "lib/index.es.js",
+    "module": "lib/index.esm.js",
     "main": "lib/index.js",
     "types": "lib/index.d.ts",
     "author": "Bharathvaj Ganesan <bharathvaj1995@gmail.com>",
