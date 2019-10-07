@@ -8,8 +8,8 @@ enum AnnotationType {
 
 interface Annotation extends ShotArea {
     type: AnnotationType;
-    index: number;
-    element: HTMLDivElement;
+    id: number;
+    element?: HTMLDivElement;
 }
 
 interface ToolbarPosition {
@@ -26,9 +26,31 @@ interface ToolbarPosition {
 }
 
 class AnnotationHelper {
+    public annotationType: AnnotationType = AnnotationType.Highlight;
     public container: HTMLDivElement;
     public annotations: Annotation[] = [];
-    public annotationId: number = 0;
+    private annotationId: number = 0;
+
+    public createAnnotation(data: ShotArea): Annotation {
+        const annotation: Annotation = {
+            ...data,
+            type: this.annotationType,
+            id: this.annotationId++
+        };
+
+        if (annotation.width < 0) {
+            annotation.x += annotation.width;
+            annotation.width *= -1;
+        }
+
+        if (annotation.height < 0) {
+            annotation.y += annotation.height;
+            annotation.height *= -1;
+        }
+
+        this.annotations.push(annotation);
+        return annotation;
+    }
 }
 
 export default class Shotify {
@@ -93,7 +115,7 @@ export default class Shotify {
         document.body.appendChild(this.rootContainer);
     }
 
-    private drawStartListener(event: MouseEvent) {
+    private drawStartListener = (event: MouseEvent) => {
         if (this.isDrawingAllowed) {
             this.isDrawing = true;
             this.area = {
@@ -103,9 +125,9 @@ export default class Shotify {
                 height: 0
             };
         }
-    }
+    };
 
-    private drawStopListener(event: MouseEvent) {
+    private drawStopListener = (event: MouseEvent) => {
         if (this.isDrawingAllowed) {
             this.isDrawing = false;
 
@@ -114,41 +136,153 @@ export default class Shotify {
                 return;
             }
 
-            // const annotation: Annotation = {
-            //     ...this.area,
-            //     highlight: this._state.highlight,
-            //     index: this._helperIdx++
-            // };
+            const annotation: Annotation = this.annotationHelper.createAnnotation(this.area);
+            annotation.element = this.createHelperDiv(annotation);
 
-            // if (helper.width < 0) {
-            //     helper.startX += helper.width;
-            //     helper.width *= -1;
-            // }
-
-            // if (helper.height < 0) {
-            //     helper.startY += helper.height;
-            //     helper.height *= -1;
-            // }
-
-            this.resetArea();
-            // this._helperElements.push(this._createHelper(helper));
-            // this._helpers.push(helper);
             this.repaint();
         }
+    };
+
+    private drawListener = (event: MouseEvent) => {
+        event.preventDefault();
+        if (this.isDrawing) {
+            this.area.width = event.clientX - this.area.x + document.documentElement.scrollLeft;
+            this.area.height = event.clientY - this.area.y + document.documentElement.scrollTop;
+
+            // TODO: constant '4' should be lineWidth - also should be optional
+            if (this.area.x + this.area.width > document.documentElement.scrollWidth) {
+                this.area.width = document.documentElement.scrollWidth - this.area.x - 4;
+            }
+
+            if (this.area.x + this.area.width < 0) {
+                this.area.width = -this.area.x + 4;
+            }
+
+            if (this.area.y + this.area.height > document.documentElement.scrollHeight) {
+                this.area.height = document.documentElement.scrollHeight - this.area.y - 4;
+            }
+
+            if (this.area.y + this.area.height < 0) {
+                this.area.height = -this.area.y + 4;
+            }
+
+            this.resetDrawBoard();
+            this.paintHighlightLines();
+
+            if (
+                this.annotationHelper.annotationType === AnnotationType.Highlight &&
+                Math.abs(this.area.width) > 6 &&
+                Math.abs(this.area.height) > 6
+            ) {
+                this.paintLines(this.area.x, this.area.y, this.area.width, this.area.height);
+                this.drawingCTX &&
+                    this.drawingCTX.clearRect(this.area.x, this.area.y, this.area.width, this.area.height);
+            }
+
+            this.paintArea();
+            this.paintArea(AnnotationType.Blackout);
+
+            if (
+                this.annotationHelper.annotationType === AnnotationType.Blackout &&
+                Math.abs(this.area.width) > 6 &&
+                Math.abs(this.area.height) > 6
+            ) {
+                if (this.drawingCTX) {
+                    this.drawingCTX.fillStyle = "rgba(0,0,0,.5)";
+                    this.drawingCTX.fillRect(this.area.x, this.area.y, this.area.width, this.area.height);
+                }
+            }
+        }
+    };
+
+    private createHelperDiv(data: Annotation): HTMLDivElement {
+        const divElem = document.createElement("div");
+        divElem.className = this.annotationHelper.annotationType ? "highlight" : "blackout";
+        divElem.style.position = "absolute";
+        divElem.style.left = `${data.x}px`;
+        divElem.style.top = `${data.y}px`;
+        divElem.style.width = `${data.width}px`;
+        divElem.style.height = `${data.height}px`;
+        divElem.style.zIndex = "20";
+        divElem.setAttribute("id", `${data.id}`);
+
+        const innerDivElem = document.createElement("div");
+        innerDivElem.style.width = `${data.width - 2}px`;
+        innerDivElem.style.height = `${data.height - 2}px`;
+        innerDivElem.style.margin = "1px";
+
+        const removeButton = document.createElement("button");
+        removeButton.innerText = "Remove";
+        removeButton.style.position = "absolute";
+        removeButton.style.right = removeButton.style.top = "0";
+        removeButton.addEventListener("click", event => {
+            this.annotationHelper.container.removeChild(divElem);
+            this.annotationHelper.annotations.splice(
+                this.annotationHelper.annotations.findIndex((annotation: Annotation) => annotation.id === data.id),
+                1
+            );
+            this.repaint();
+        });
+
+        divElem.addEventListener("mouseleave", event => {
+            if (this.isDrawingAllowed && !this.isDrawing && divElem.hasChildNodes()) {
+                let child = divElem.lastElementChild;
+                while (child) {
+                    divElem.removeChild(child);
+                    child = divElem.lastElementChild;
+                }
+                this.repaint();
+            }
+        });
+
+        divElem.addEventListener("mouseenter", event => {
+            if (this.isDrawingAllowed && !this.isDrawing) {
+                divElem.appendChild(innerDivElem);
+                divElem.appendChild(removeButton);
+
+                if (data.type === AnnotationType.Blackout) {
+                    this.resetDrawBoard();
+
+                    this.paintHighlightLines();
+                    this.paintArea();
+
+                    if (this.drawingCTX) {
+                        this.drawingCTX.clearRect(data.x, data.y, data.width, data.height);
+                        this.drawingCTX.fillStyle = "rgba(0,0,0,.75)";
+                        this.drawingCTX.fillRect(data.x, data.y, data.width, data.height);
+                        this.annotationHelper.annotations
+                            .filter(
+                                (annotation: Annotation) =>
+                                    annotation.type === AnnotationType.Blackout && annotation.id !== annotation.id
+                            )
+                            .forEach((annotation: Annotation) => {
+                                if (this.drawingCTX) {
+                                    this.drawingCTX.fillStyle = "rgba(0,0,0,1)";
+                                    this.drawingCTX.fillRect(
+                                        annotation.x,
+                                        annotation.y,
+                                        annotation.width,
+                                        annotation.height
+                                    );
+                                }
+                            });
+                    }
+                }
+            }
+        });
+        return divElem;
     }
 
-    private drawListener() {}
-
-    private setScrollPositions() {
+    private setScrollPositions = () => {
         const x = -document.documentElement.scrollLeft;
         const y = -document.documentElement.scrollTop;
         this.drawingContainer.style.left = `${x}px`;
         this.drawingContainer.style.top = `${y}px`;
         this.annotationHelper.container.style.left = `${x}px`;
         this.annotationHelper.container.style.top = `${y}px`;
-    }
+    };
 
-    private resizeHelpers() {
+    private resizeHelpers = () => {
         const height = document.documentElement.scrollHeight;
         const width = document.documentElement.scrollWidth;
         this.drawingContainer.height = height;
@@ -156,7 +290,7 @@ export default class Shotify {
         this.annotationHelper.container.style.height = `${height}px`;
         this.annotationHelper.container.style.width = `${width}px`;
         this.repaint();
-    }
+    };
 
     private resetDrawBoard() {
         if (this.drawingCTX) {
@@ -183,8 +317,8 @@ export default class Shotify {
             ...this.fetchCurrWindowProps()
         };
 
-        while (this.previewContainer.firstChild) {
-            this.previewContainer.removeChild(this.previewContainer.firstChild);
+        while (this.options.previewContainer.firstChild) {
+            this.options.previewContainer.removeChild(this.options.previewContainer.firstChild);
         }
 
         this.repaint(false);
@@ -266,12 +400,12 @@ export default class Shotify {
         });
     }
 
-    destroy() {
+    public destroy = () => {
         this.reset();
         window.removeEventListener("resize", this.resizeHelpers);
         document.removeEventListener("mousedown", this.drawStartListener);
         document.removeEventListener("mouseup", this.drawStopListener);
         document.removeEventListener("mousemove", this.drawListener);
         document.body.removeChild(this.rootContainer);
-    }
+    };
 }
