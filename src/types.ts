@@ -24,6 +24,7 @@ export interface ShotOptions {
     previewContainer: HTMLElement;
     dialogContainer: HTMLElement;
     ignoreElements?: HTMLElement[];
+    update?: Function;
 }
 
 export interface ShotArea {

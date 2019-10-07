@@ -67,6 +67,7 @@ export default class Shotify {
     private toolbarContainer: HTMLDivElement;
     private rootContainer: HTMLDivElement;
     private drawingCTX: CanvasRenderingContext2D | null;
+    private isProcessing: boolean = false;
 
     private html2canvasOptions: HTML2CanvasOptions;
     private options: ShotOptions;
@@ -99,17 +100,18 @@ export default class Shotify {
 
     private setupContainers() {
         const rootContainer: HTMLDivElement = document.createElement("div");
+        rootContainer.setAttribute('data-shotify', "true");
         this.rootContainer = rootContainer;
 
         const annotationHelpersContainer: HTMLDivElement = document.createElement("div");
-        annotationHelpersContainer.classList.add("helpers");
+        annotationHelpersContainer.classList.add("cv-preview__helpers");
         annotationHelpersContainer.style.width = `${document.documentElement.scrollWidth}px`;
         annotationHelpersContainer.style.height = `${document.documentElement.scrollHeight}px`;
         this.annotationHelper.container = annotationHelpersContainer;
         rootContainer.appendChild(annotationHelpersContainer);
 
         const drawingContainer: HTMLCanvasElement = document.createElement("canvas");
-        drawingContainer.classList.add("draw-area");
+        drawingContainer.classList.add("cv-preview__draw-area");
         drawingContainer.width = document.documentElement.scrollWidth;
         drawingContainer.height = document.documentElement.scrollHeight;
         this.drawingContainer = drawingContainer;
@@ -363,8 +365,12 @@ export default class Shotify {
     private showToolBar = () => {
         this.isDrawingAllowed = true;
         this.drawingContainer.classList.add("active");
-        this.options.dialogContainer.style.display = "none";
+
+        // this.options.dialogContainer.style.display = "none";
+        this.updateDrawing(false)
         this.createToolBar();
+        this.annotationHelper.container.classList.add('z-100');
+        this.drawingContainer.classList.add('z-100');
         document.addEventListener("mousemove", this.highlightAnnotation);
         document.addEventListener("click", this.saveHighlightAnnotation);
     };
@@ -373,7 +379,10 @@ export default class Shotify {
         this.isDrawingAllowed = false;
         this.drawingContainer.classList.remove("active");
         this.rootContainer.removeChild(this.toolbarContainer);
-        this.options.dialogContainer.style.display = "block";
+        this.annotationHelper.container.classList.remove('z-100');
+        this.drawingContainer.classList.remove('z-100');
+        // this.options.dialogContainer.style.display = "block";
+        this.updateDrawing(true)
         document.removeEventListener("mousemove", this.highlightAnnotation);
         document.removeEventListener("click", this.saveHighlightAnnotation);
         this.prepareShot();
@@ -381,11 +390,13 @@ export default class Shotify {
 
     private createToolBar() {
         const toolbarElem = document.createElement("div");
-        toolbarElem.className = `draw-options`;
+        toolbarElem.className = `cv-preview__toolbar`;
+        toolbarElem.setAttribute('data-shotify', "true");
 
         const draggerTipElem = document.createElement("div");
-        draggerTipElem.className = "dragger";
-        draggerTipElem.innerText = "Drag me";
+        draggerTipElem.className = "cv-preview__grippy"; // TODO
+        // draggerTipElem.innerText = "Drag me";
+        draggerTipElem.innerHTML = '<i class="cn-glyph-drag-vertical"></i>'
 
         document.addEventListener("mouseup", this.stopDragToolbar);
         document.addEventListener("mousedown", this.startDragToolbar);
@@ -395,10 +406,11 @@ export default class Shotify {
         toolbarElem.appendChild(this.draggerTip);
 
         const highlightButtonContainer = document.createElement("div");
+        highlightButtonContainer.classList.add('cv-preview__action');
         const highlightButton = document.createElement("button");
-        highlightButton.innerText = "Highlight";
+        // highlightButton.innerText = "Highlight";
         highlightButton.type = "button";
-        // highlightButton.classList.add(this.options.classes.button);
+        highlightButton.className += 'cn-btn cn-btn-highlight';
         // highlightButton.classList.add(this.options.classes.buttonDefault);
         highlightButton.addEventListener(
             "click",
@@ -408,10 +420,11 @@ export default class Shotify {
         toolbarElem.appendChild(highlightButtonContainer);
 
         const blackoutButtonContainer = document.createElement("div");
+        blackoutButtonContainer.classList.add('cv-preview__action');
         const blackoutButton = document.createElement("button");
-        blackoutButton.innerText = "blackout";
+        // blackoutButton.innerText = "blackout";
         blackoutButton.type = "button";
-        // blackoutButton.classList.add(this.options.classes.button);
+        blackoutButton.className += 'cn-btn cn-btn-blackout';
         // blackoutButton.classList.add(this.options.classes.buttonDefault);
         blackoutButton.addEventListener(
             "click",
@@ -421,11 +434,11 @@ export default class Shotify {
         toolbarElem.appendChild(blackoutButtonContainer);
 
         const doneButtonContainer = document.createElement("div");
-
+        doneButtonContainer.classList.add('cv-preview__action');
         const doneButton = document.createElement("button");
-        doneButton.innerText = "Done";
+        doneButton.innerText = "DONE";
         doneButton.type = "button";
-        // doneButton.classList.add(this.options.classes.button);
+        doneButton.className += 'cn-btn cn-link cn-btn-done';
         // doneButton.classList.add(this.options.classes.buttonDefault);
         doneButton.addEventListener("click", this.hideToolBar);
         doneButtonContainer.appendChild(doneButton);
@@ -480,16 +493,33 @@ export default class Shotify {
             ...this.fetchCurrWindowProps()
         };
 
-        while (this.options.previewContainer.firstChild) {
-            this.options.previewContainer.removeChild(this.options.previewContainer.firstChild);
-        }
-
         this.repaint(false);
-        html2canvas(document.body, this.html2canvasOptions).then((canvas: HTMLCanvasElement) => {
-            this.previewCanvas = canvas;
-            this.options.previewContainer.appendChild(canvas);
-            this.repaint();
+        if (this.previewCanvas) {
+            this.options.previewContainer.removeChild(this.previewCanvas);
+        }
+        this.updateProcessing(true);
+        html2canvas(document.body, this.html2canvasOptions)
+        .then((canvas: HTMLCanvasElement) => {
+            // To prevent lag
+           setTimeout(() => {
+               this.previewCanvas = this.options.previewContainer.appendChild(canvas);
+               this.repaint();
+               this.updateProcessing();
+           }, 500);
+        }).catch(() => {
+            this.updateProcessing();
+            // TODO: emit error event
         });
+    }
+
+    private updateDrawing(state: boolean = false, emit: boolean = true) {
+        // this.options.dialogContainer.style.display = state ? "block": "none";
+        this.emitEvent('drawing', state);
+    }
+
+    private updateProcessing(state: boolean = false, emit: boolean = true) {
+        this.isProcessing = state;
+        emit && this.emitEvent('processing', state);
     }
 
     private setIgnoreAttributes() {
@@ -497,6 +527,13 @@ export default class Shotify {
         ignoreElements.forEach((element: HTMLElement) => {
             element.setAttribute("data-html2canvas-ignore", "true");
         });
+    }
+
+
+    private emitEvent(eventType: string, payload?: any) {
+        if (typeof this.options.update === 'function') {
+            this.options.update(eventType, payload)
+        }
     }
 
     private resetArea() {
@@ -516,6 +553,7 @@ export default class Shotify {
     }
 
     private reset() {
+        this.updateProcessing(false, false);
         this.toolbarPosition = {
             x: 0,
             y: 0,
