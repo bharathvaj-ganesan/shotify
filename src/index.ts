@@ -2,8 +2,8 @@ import html2canvas from "html2canvas";
 import { HTML2CanvasOptions, ShotOptions, ShotArea } from "./types";
 
 enum AnnotationType {
-    Highlight = 0,
-    Blackout
+    Highlight = "highlight",
+    Blackout = "blackout"
 }
 
 interface Annotation extends ShotArea {
@@ -15,8 +15,8 @@ interface Annotation extends ShotArea {
 interface ToolbarPosition {
     x: number;
     y: number;
-    currTx: string;
-    nextTx: string;
+    currTx: string | null;
+    nextTx: string | null;
     boundary: {
         xNeg: number;
         xPos: number;
@@ -30,6 +30,7 @@ class AnnotationHelper {
     public container: HTMLDivElement;
     public annotations: Annotation[] = [];
     private annotationId: number = 0;
+    public annotationArea: null | ShotArea;
 
     public createAnnotation(data: ShotArea): Annotation {
         const annotation: Annotation = {
@@ -61,7 +62,6 @@ export default class Shotify {
     private isDraggingAllowed: boolean;
     private drawingContainer: HTMLCanvasElement;
     private draggerTip: HTMLDivElement;
-    private drawOptionsPosition: any;
     private previewCanvas: HTMLCanvasElement;
     private toolbarPosition: ToolbarPosition;
     private toolbarContainer: HTMLDivElement;
@@ -116,9 +116,10 @@ export default class Shotify {
         this.drawingCTX = this.drawingContainer.getContext("2d");
         rootContainer.appendChild(drawingContainer);
 
+        drawingContainer.addEventListener("mousedown", this.drawStartListener);
+
         this.options.previewContainer.addEventListener("click", this.showToolBar);
 
-        document.addEventListener("mousedown", this.drawStartListener);
         document.addEventListener("mouseup", this.drawStopListener);
         document.addEventListener("mousemove", this.drawListener);
         window.addEventListener("resize", this.resizeHelpers);
@@ -128,6 +129,7 @@ export default class Shotify {
     }
 
     private drawStartListener = (event: MouseEvent) => {
+        console.log("draw start listnner");
         if (this.isDrawingAllowed) {
             this.isDrawing = true;
             this.area = {
@@ -140,6 +142,7 @@ export default class Shotify {
     };
 
     private drawStopListener = (event: MouseEvent) => {
+        console.log("draw stop listneer");
         if (this.isDrawingAllowed) {
             this.isDrawing = false;
 
@@ -150,8 +153,79 @@ export default class Shotify {
 
             const annotation: Annotation = this.annotationHelper.createAnnotation(this.area);
             annotation.element = this.createHelperDiv(annotation);
+            this.resetArea();
+            this.repaint();
+        }
+    };
+
+    private saveHighlightAnnotation = (event: MouseEvent) => {
+        const area = this.annotationHelper.annotationArea;
+        if (area) {
+            // TODO: need to check these magic numbers
+            if (Math.abs(area.width) < 6 || Math.abs(area.height) < 6) {
+                return;
+            }
+
+            const annotation: Annotation = this.annotationHelper.createAnnotation(area);
+            annotation.element = this.createHelperDiv(annotation);
+        }
+    };
+
+    private highlightAnnotation = (event: MouseEvent) => {
+        this.annotationHelper.annotationArea = null;
+
+        // We need the 3rd element in the list.
+        if (!this.isDraggingAllowed || this.isDrawing) {
+            return;
+        }
+
+        const el = document.elementsFromPoint(event.x, event.y)[3];
+        if (el) {
+            if (["span"].indexOf(el.nodeName.toLowerCase()) === -1) {
+                this.repaint();
+                this.drawingContainer.style.cursor = "crosshair";
+                return;
+            }
+            this.drawingContainer.style.cursor = "pointer";
+            const rect = el.getBoundingClientRect();
+            this.annotationHelper.annotationArea = {
+                x: rect.left + document.documentElement.scrollLeft,
+                y: rect.top + document.documentElement.scrollTop,
+                width: rect.width,
+                height: rect.height
+            };
 
             this.repaint();
+            if (this.annotationHelper.annotationType === AnnotationType.Highlight) {
+                if (this.annotationHelper.annotationArea && this.drawingCTX) {
+                    this.paintLines(
+                        this.annotationHelper.annotationArea.x,
+                        this.annotationHelper.annotationArea.y,
+                        this.annotationHelper.annotationArea.width,
+                        this.annotationHelper.annotationArea.height
+                    );
+                    this.drawingCTX.clearRect(
+                        this.annotationHelper.annotationArea.x,
+                        this.annotationHelper.annotationArea.y,
+                        this.annotationHelper.annotationArea.width,
+                        this.annotationHelper.annotationArea.height
+                    );
+                }
+            }
+
+            this.paintArea();
+
+            if (this.annotationHelper.annotationType === AnnotationType.Blackout && this.drawingCTX) {
+                this.drawingCTX.fillStyle = "rgba(0,0,0,.5)";
+                this.drawingCTX.fillRect(
+                    this.annotationHelper.annotationArea.x,
+                    this.annotationHelper.annotationArea.y,
+                    this.annotationHelper.annotationArea.width,
+                    this.annotationHelper.annotationArea.height
+                );
+            }
+
+            this.paintArea(AnnotationType.Blackout);
         }
     };
 
@@ -282,15 +356,17 @@ export default class Shotify {
                 }
             }
         });
+        this.annotationHelper.container.appendChild(divElem);
         return divElem;
     }
 
     private showToolBar = () => {
-        this.isDraggingAllowed = true;
+        this.isDrawingAllowed = true;
         this.drawingContainer.classList.add("active");
         this.options.dialogContainer.style.display = "none";
-        // document.addEventListener("mousemove", this._highlightElement);
-        // document.addEventListener("click", this._addHighlightedElement);
+        this.createToolBar();
+        document.addEventListener("mousemove", this.highlightAnnotation);
+        document.addEventListener("click", this.saveHighlightAnnotation);
     };
 
     private hideToolBar = () => {
@@ -298,8 +374,8 @@ export default class Shotify {
         this.drawingContainer.classList.remove("active");
         this.rootContainer.removeChild(this.toolbarContainer);
         this.options.dialogContainer.style.display = "block";
-        // document.removeEventListener("mousemove", this._highlightElement);
-        // document.removeEventListener("click", this._addHighlightedElement);
+        document.removeEventListener("mousemove", this.highlightAnnotation);
+        document.removeEventListener("click", this.saveHighlightAnnotation);
         this.prepareShot();
     };
 
@@ -322,8 +398,8 @@ export default class Shotify {
         const highlightButton = document.createElement("button");
         highlightButton.innerText = "Highlight";
         highlightButton.type = "button";
-        // highlightButton.classList.add(this._options.classes.button);
-        // highlightButton.classList.add(this._options.classes.buttonDefault);
+        // highlightButton.classList.add(this.options.classes.button);
+        // highlightButton.classList.add(this.options.classes.buttonDefault);
         highlightButton.addEventListener(
             "click",
             () => (this.annotationHelper.annotationType = AnnotationType.Highlight)
@@ -335,8 +411,8 @@ export default class Shotify {
         const blackoutButton = document.createElement("button");
         blackoutButton.innerText = "blackout";
         blackoutButton.type = "button";
-        // blackoutButton.classList.add(this._options.classes.button);
-        // blackoutButton.classList.add(this._options.classes.buttonDefault);
+        // blackoutButton.classList.add(this.options.classes.button);
+        // blackoutButton.classList.add(this.options.classes.buttonDefault);
         blackoutButton.addEventListener(
             "click",
             () => (this.annotationHelper.annotationType = AnnotationType.Blackout)
@@ -349,9 +425,9 @@ export default class Shotify {
         const doneButton = document.createElement("button");
         doneButton.innerText = "Done";
         doneButton.type = "button";
-        // doneButton.classList.add(this._options.classes.button);
-        // doneButton.classList.add(this._options.classes.buttonDefault);
-        // doneButton.addEventListener("click", this._closeDrawer);
+        // doneButton.classList.add(this.options.classes.button);
+        // doneButton.classList.add(this.options.classes.buttonDefault);
+        doneButton.addEventListener("click", this.hideToolBar);
         doneButtonContainer.appendChild(doneButton);
         toolbarElem.appendChild(doneButtonContainer);
 
@@ -440,6 +516,18 @@ export default class Shotify {
     }
 
     private reset() {
+        this.toolbarPosition = {
+            x: 0,
+            y: 0,
+            currTx: null,
+            nextTx: null,
+            boundary: {
+                xNeg: 0,
+                xPos: 0,
+                yNeg: 0,
+                yPos: 0
+            }
+        };
         this.resetArea();
         this.resetState();
         this.annotationHelper = new AnnotationHelper();
@@ -474,17 +562,24 @@ export default class Shotify {
     }
 
     private paintArea(annotationType: AnnotationType = AnnotationType.Highlight) {
-        this.annotationHelper.annotations.forEach((annotation: Annotation) => {
-            const { x, y, width, height } = annotation;
-            if (annotation.type === annotationType) {
-                this.drawingCTX && this.drawingCTX.clearRect(x, y, width, height);
-            } else {
-                if (this.drawingCTX) {
-                    this.drawingCTX.fillStyle = "rgba(0,0,0,1)";
-                    this.drawingCTX.fillRect(x, y, width, height);
+        if (annotationType === AnnotationType.Highlight) {
+            this.annotationHelper.annotations.forEach((annotation: Annotation) => {
+                const { x, y, width, height } = annotation;
+                if (annotation.type === AnnotationType.Highlight) {
+                    this.drawingCTX && this.drawingCTX.clearRect(x, y, width, height);
                 }
-            }
-        });
+            });
+        } else {
+            this.annotationHelper.annotations.forEach((annotation: Annotation) => {
+                const { x, y, width, height } = annotation;
+                if (annotation.type === AnnotationType.Blackout) {
+                    if (this.drawingCTX) {
+                        this.drawingCTX.fillStyle = "rgba(0,0,0,1)";
+                        this.drawingCTX.fillRect(x, y, width, height);
+                    }
+                }
+            });
+        }
     }
 
     public destroy = () => {
@@ -493,6 +588,8 @@ export default class Shotify {
         document.removeEventListener("mousedown", this.drawStartListener);
         document.removeEventListener("mouseup", this.drawStopListener);
         document.removeEventListener("mousemove", this.drawListener);
+        document.removeEventListener("mousemove", this.highlightAnnotation);
+        document.removeEventListener("click", this.saveHighlightAnnotation);
         document.body.removeChild(this.rootContainer);
     };
 }
