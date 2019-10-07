@@ -60,10 +60,11 @@ export default class Shotify {
     private isDrawingAllowed: boolean;
     private isDraggingAllowed: boolean;
     private drawingContainer: HTMLCanvasElement;
-    private previewContainer: HTMLElement;
+    private draggerTip: HTMLDivElement;
+    private drawOptionsPosition: any;
     private previewCanvas: HTMLCanvasElement;
     private toolbarPosition: ToolbarPosition;
-    private toolbarContainer: HTMLElement;
+    private toolbarContainer: HTMLDivElement;
     private rootContainer: HTMLDivElement;
     private drawingCTX: CanvasRenderingContext2D | null;
 
@@ -80,8 +81,12 @@ export default class Shotify {
         this.setIgnoreAttributes();
         this.setupContainers();
         this.setScrollPositions();
-        window.addEventListener("scroll", this.setScrollPositions);
+        this.attachScrollListener();
         this.prepareShot();
+    }
+
+    private attachScrollListener() {
+        window.addEventListener("scroll", this.setScrollPositions);
     }
 
     private setOptions(options: ShotOptions) {
@@ -97,15 +102,22 @@ export default class Shotify {
         this.rootContainer = rootContainer;
 
         const annotationHelpersContainer: HTMLDivElement = document.createElement("div");
+        annotationHelpersContainer.classList.add("helpers");
         annotationHelpersContainer.style.width = `${document.documentElement.scrollWidth}px`;
         annotationHelpersContainer.style.height = `${document.documentElement.scrollHeight}px`;
         this.annotationHelper.container = annotationHelpersContainer;
+        rootContainer.appendChild(annotationHelpersContainer);
 
         const drawingContainer: HTMLCanvasElement = document.createElement("canvas");
+        drawingContainer.classList.add("draw-area");
         drawingContainer.width = document.documentElement.scrollWidth;
         drawingContainer.height = document.documentElement.scrollHeight;
         this.drawingContainer = drawingContainer;
         this.drawingCTX = this.drawingContainer.getContext("2d");
+        rootContainer.appendChild(drawingContainer);
+
+        this.options.previewContainer.addEventListener("click", this.showToolBar);
+
         document.addEventListener("mousedown", this.drawStartListener);
         document.addEventListener("mouseup", this.drawStopListener);
         document.addEventListener("mousemove", this.drawListener);
@@ -271,6 +283,81 @@ export default class Shotify {
             }
         });
         return divElem;
+    }
+
+    private showToolBar = () => {
+        this.isDraggingAllowed = true;
+        this.drawingContainer.classList.add("active");
+        this.options.dialogContainer.style.display = "none";
+        // document.addEventListener("mousemove", this._highlightElement);
+        // document.addEventListener("click", this._addHighlightedElement);
+    };
+
+    private hideToolBar = () => {
+        this.isDrawingAllowed = false;
+        this.drawingContainer.classList.remove("active");
+        this.rootContainer.removeChild(this.toolbarContainer);
+        this.options.dialogContainer.style.display = "block";
+        // document.removeEventListener("mousemove", this._highlightElement);
+        // document.removeEventListener("click", this._addHighlightedElement);
+        this.prepareShot();
+    };
+
+    private createToolBar() {
+        const toolbarElem = document.createElement("div");
+        toolbarElem.className = `draw-options`;
+
+        const draggerTipElem = document.createElement("div");
+        draggerTipElem.className = "dragger";
+        draggerTipElem.innerText = "Drag me";
+
+        // draggerContainer.addEventListener("mousedown", this._dragStart);
+        // document.addEventListener("mousemove", this._dragDrag);
+        // document.addEventListener("mouseup", this._dragStop);
+
+        this.draggerTip = draggerTipElem;
+        toolbarElem.appendChild(this.draggerTip);
+
+        const highlightButtonContainer = document.createElement("div");
+        const highlightButton = document.createElement("button");
+        highlightButton.innerText = "Highlight";
+        highlightButton.type = "button";
+        // highlightButton.classList.add(this._options.classes.button);
+        // highlightButton.classList.add(this._options.classes.buttonDefault);
+        highlightButton.addEventListener(
+            "click",
+            () => (this.annotationHelper.annotationType = AnnotationType.Highlight)
+        );
+        highlightButtonContainer.appendChild(highlightButton);
+        toolbarElem.appendChild(highlightButtonContainer);
+
+        const blackoutButtonContainer = document.createElement("div");
+        const blackoutButton = document.createElement("button");
+        blackoutButton.innerText = "blackout";
+        blackoutButton.type = "button";
+        // blackoutButton.classList.add(this._options.classes.button);
+        // blackoutButton.classList.add(this._options.classes.buttonDefault);
+        blackoutButton.addEventListener(
+            "click",
+            () => (this.annotationHelper.annotationType = AnnotationType.Blackout)
+        );
+        blackoutButtonContainer.appendChild(blackoutButton);
+        toolbarElem.appendChild(blackoutButtonContainer);
+
+        const doneButtonContainer = document.createElement("div");
+
+        const doneButton = document.createElement("button");
+        doneButton.innerText = "Done";
+        doneButton.type = "button";
+        // doneButton.classList.add(this._options.classes.button);
+        // doneButton.classList.add(this._options.classes.buttonDefault);
+        // doneButton.addEventListener("click", this._closeDrawer);
+        doneButtonContainer.appendChild(doneButton);
+        toolbarElem.appendChild(doneButtonContainer);
+
+        this.toolbarContainer = toolbarElem;
+        this.toolbarPosition.currTx = "translate(-50%, -50%)";
+        this.rootContainer.appendChild(this.toolbarContainer);
     }
 
     private setScrollPositions = () => {

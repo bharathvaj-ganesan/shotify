@@ -22,6 +22,7 @@ export interface HTML2CanvasOptions {
 export interface ShotOptions {
     html2canvasOptions?: HTML2CanvasOptions;
     previewContainer: HTMLElement;
+    dialogContainer: HTMLElement;
     ignoreElements?: HTMLElement[];
 }
 
