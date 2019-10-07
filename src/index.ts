@@ -387,11 +387,11 @@ export default class Shotify {
         draggerTipElem.className = "dragger";
         draggerTipElem.innerText = "Drag me";
 
-        // draggerContainer.addEventListener("mousedown", this._dragStart);
-        // document.addEventListener("mousemove", this._dragDrag);
-        // document.addEventListener("mouseup", this._dragStop);
+        document.addEventListener("mouseup", this.stopDragToolbar);
+        document.addEventListener("mousedown", this.startDragToolbar);
 
         this.draggerTip = draggerTipElem;
+        this.draggerTip.addEventListener("mousemove", this.dragToolbar);
         toolbarElem.appendChild(this.draggerTip);
 
         const highlightButtonContainer = document.createElement("div");
@@ -582,14 +582,71 @@ export default class Shotify {
         }
     }
 
+    private startDragToolbar = (event: MouseEvent) => {
+        if (!this.isDragging) {
+            this.isDragging = true;
+            this.toolbarPosition.x = event.clientX;
+            this.toolbarPosition.y = event.clientY;
+
+            const rect = this.toolbarContainer.getBoundingClientRect();
+            this.toolbarPosition.boundary.xNeg = -rect.left;
+            this.toolbarPosition.boundary.xPos = document.documentElement.clientWidth - rect.right;
+            this.toolbarPosition.boundary.yNeg = -rect.top;
+            this.toolbarPosition.boundary.yPos = document.documentElement.clientHeight - rect.bottom;
+        }
+    };
+
+    private dragToolbar = (event: MouseEvent) => {
+        if (this.isDragging) {
+            event.preventDefault();
+
+            let nextX = event.clientX - this.toolbarPosition.x;
+            let nextY = event.clientY - this.toolbarPosition.y;
+
+            if (nextX < this.toolbarPosition.boundary.xNeg) {
+                nextX = this.toolbarPosition.boundary.xNeg;
+            }
+
+            if (nextX > this.toolbarPosition.boundary.xPos) {
+                nextX = this.toolbarPosition.boundary.xPos;
+            }
+
+            if (nextY < this.toolbarPosition.boundary.yNeg) {
+                nextY = this.toolbarPosition.boundary.yNeg;
+            }
+
+            if (nextY > this.toolbarPosition.boundary.yPos) {
+                nextY = this.toolbarPosition.boundary.yPos;
+            }
+
+            nextX = Math.round(nextX);
+            nextY = Math.round(nextY);
+
+            this.toolbarPosition.nextTx = `translate(${nextX}px, ${nextY}px)`;
+            this.toolbarContainer.style.transform = `${this.toolbarPosition.currTx} ${this.toolbarPosition.nextTx}`;
+            this.isDraggingAllowed = true;
+        }
+    };
+
+    private stopDragToolbar = (event: MouseEvent) => {
+        this.isDragging = false;
+        if (this.isDraggingAllowed) {
+            this.toolbarPosition.currTx = `${this.toolbarPosition.currTx} ${this.toolbarPosition.nextTx}`;
+            this.isDraggingAllowed = false;
+        }
+    };
+
     public destroy = () => {
         this.reset();
         window.removeEventListener("resize", this.resizeHelpers);
-        document.removeEventListener("mousedown", this.drawStartListener);
+        this.drawingContainer.removeEventListener("mousedown", this.drawStartListener);
         document.removeEventListener("mouseup", this.drawStopListener);
         document.removeEventListener("mousemove", this.drawListener);
         document.removeEventListener("mousemove", this.highlightAnnotation);
         document.removeEventListener("click", this.saveHighlightAnnotation);
+        this.draggerTip.removeEventListener("mousemove", this.dragToolbar);
+        document.removeEventListener("mouseup", this.stopDragToolbar);
+        document.removeEventListener("mousedown", this.startDragToolbar);
         document.body.removeChild(this.rootContainer);
     };
 }
