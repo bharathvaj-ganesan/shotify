@@ -6,7 +6,11 @@ export default {
     output: [
         {
             file: pkg.main,
-            format: "cjs"
+            format: "umd",
+            name: "shotify",
+            globals: {
+                html2canvas: "html2canvas"
+            }
         },
         {
             file: pkg.module,
