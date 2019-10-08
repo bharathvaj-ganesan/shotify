@@ -131,7 +131,6 @@ export default class Shotify {
     }
 
     private drawStartListener = (event: MouseEvent) => {
-        console.log("draw start listnner");
         if (this.isDrawingAllowed) {
             this.isDrawing = true;
             this.area = {
@@ -144,7 +143,6 @@ export default class Shotify {
     };
 
     private drawStopListener = (event: MouseEvent) => {
-        console.log("draw stop listneer");
         if (this.isDrawingAllowed) {
             this.isDrawing = false;
 
@@ -285,13 +283,13 @@ export default class Shotify {
 
     private createHelperDiv(data: Annotation): HTMLDivElement {
         const divElem = document.createElement("div");
-        divElem.className = this.annotationHelper.annotationType ? "highlight" : "blackout";
+        divElem.className = this.annotationHelper.annotationType ? this.options.classes.highlight : this.options.classes.blackout;
         divElem.style.position = "absolute";
         divElem.style.left = `${data.x}px`;
         divElem.style.top = `${data.y}px`;
         divElem.style.width = `${data.width}px`;
         divElem.style.height = `${data.height}px`;
-        divElem.style.zIndex = "20";
+        divElem.style.zIndex = "101";
         divElem.setAttribute("id", `${data.id}`);
 
         const innerDivElem = document.createElement("div");
@@ -299,11 +297,12 @@ export default class Shotify {
         innerDivElem.style.height = `${data.height - 2}px`;
         innerDivElem.style.margin = "1px";
 
-        const removeButton = document.createElement("button");
-        removeButton.innerText = "Remove";
-        removeButton.style.position = "absolute";
-        removeButton.style.right = removeButton.style.top = "0";
-        removeButton.addEventListener("click", event => {
+        const removeElem = document.createElement("div");
+        removeElem.className += this.options.classes.remove_action;
+        removeElem.innerHTML = `<i class="${this.options.classes.remove_icon}"></i>`
+        removeElem.style.position = "absolute";
+        removeElem.style.right = removeElem.style.top = "0";
+        removeElem.addEventListener("click", event => {
             this.annotationHelper.container.removeChild(divElem);
             this.annotationHelper.annotations.splice(
                 this.annotationHelper.annotations.findIndex((annotation: Annotation) => annotation.id === data.id),
@@ -326,7 +325,7 @@ export default class Shotify {
         divElem.addEventListener("mouseenter", event => {
             if (this.isDrawingAllowed && !this.isDrawing) {
                 divElem.appendChild(innerDivElem);
-                divElem.appendChild(removeButton);
+                divElem.appendChild(removeElem);
 
                 if (data.type === AnnotationType.Blackout) {
                     this.resetDrawBoard();
@@ -369,8 +368,7 @@ export default class Shotify {
         // this.options.dialogContainer.style.display = "none";
         this.updateDrawing(false)
         this.createToolBar();
-        this.annotationHelper.container.classList.add('z-100');
-        this.drawingContainer.classList.add('z-100');
+        this.drawingContainer.style.zIndex = '100';
         document.addEventListener("mousemove", this.highlightAnnotation);
         document.addEventListener("click", this.saveHighlightAnnotation);
     };
@@ -379,9 +377,7 @@ export default class Shotify {
         this.isDrawingAllowed = false;
         this.drawingContainer.classList.remove("active");
         this.rootContainer.removeChild(this.toolbarContainer);
-        this.annotationHelper.container.classList.remove('z-100');
-        this.drawingContainer.classList.remove('z-100');
-        // this.options.dialogContainer.style.display = "block";
+        this.drawingContainer.style.zIndex = 'auto';
         this.updateDrawing(true)
         document.removeEventListener("mousemove", this.highlightAnnotation);
         document.removeEventListener("click", this.saveHighlightAnnotation);
@@ -390,13 +386,12 @@ export default class Shotify {
 
     private createToolBar() {
         const toolbarElem = document.createElement("div");
-        toolbarElem.className = `cv-preview__toolbar`;
+        toolbarElem.className = this.options.classes.toolbar;
         toolbarElem.setAttribute('data-shotify', "true");
 
         const draggerTipElem = document.createElement("div");
-        draggerTipElem.className = "cv-preview__grippy"; // TODO
-        // draggerTipElem.innerText = "Drag me";
-        draggerTipElem.innerHTML = '<i class="cn-glyph-drag-vertical"></i>'
+        draggerTipElem.className = this.options.classes.grippy;
+        draggerTipElem.innerHTML = `<i class="${this.options.classes.grippy_icon}"></i>`
 
         document.addEventListener("mouseup", this.stopDragToolbar);
         document.addEventListener("mousedown", this.startDragToolbar);
@@ -406,12 +401,10 @@ export default class Shotify {
         toolbarElem.appendChild(this.draggerTip);
 
         const highlightButtonContainer = document.createElement("div");
-        highlightButtonContainer.classList.add('cv-preview__action');
+        highlightButtonContainer.classList.add(this.options.classes.toolbar_action);
         const highlightButton = document.createElement("button");
-        // highlightButton.innerText = "Highlight";
         highlightButton.type = "button";
-        highlightButton.className += 'cn-btn cn-btn-highlight';
-        // highlightButton.classList.add(this.options.classes.buttonDefault);
+        highlightButton.className += this.options.classes.toolbar_action_highlight;
         highlightButton.addEventListener(
             "click",
             () => (this.annotationHelper.annotationType = AnnotationType.Highlight)
@@ -420,12 +413,10 @@ export default class Shotify {
         toolbarElem.appendChild(highlightButtonContainer);
 
         const blackoutButtonContainer = document.createElement("div");
-        blackoutButtonContainer.classList.add('cv-preview__action');
+        blackoutButtonContainer.classList.add(this.options.classes.toolbar_action);
         const blackoutButton = document.createElement("button");
-        // blackoutButton.innerText = "blackout";
         blackoutButton.type = "button";
-        blackoutButton.className += 'cn-btn cn-btn-blackout';
-        // blackoutButton.classList.add(this.options.classes.buttonDefault);
+        blackoutButton.className += this.options.classes.toolbar_action_blackout;
         blackoutButton.addEventListener(
             "click",
             () => (this.annotationHelper.annotationType = AnnotationType.Blackout)
@@ -434,12 +425,11 @@ export default class Shotify {
         toolbarElem.appendChild(blackoutButtonContainer);
 
         const doneButtonContainer = document.createElement("div");
-        doneButtonContainer.classList.add('cv-preview__action');
+        doneButtonContainer.classList.add(this.options.classes.toolbar_action);
         const doneButton = document.createElement("button");
         doneButton.innerText = "DONE";
         doneButton.type = "button";
-        doneButton.className += 'cn-btn cn-link cn-btn-done';
-        // doneButton.classList.add(this.options.classes.buttonDefault);
+        doneButton.className += this.options.classes.toolbar_action_done;
         doneButton.addEventListener("click", this.hideToolBar);
         doneButtonContainer.appendChild(doneButton);
         toolbarElem.appendChild(doneButtonContainer);
@@ -501,6 +491,11 @@ export default class Shotify {
         html2canvas(document.body, this.html2canvasOptions)
         .then((canvas: HTMLCanvasElement) => {
             // To prevent lag
+            this.annotationHelper.annotations.forEach((annotation: Annotation) => {
+                if(annotation.element) {
+                    annotation.element.style.zIndex = "auto";
+                } 
+            })
            setTimeout(() => {
                this.previewCanvas = this.options.previewContainer.appendChild(canvas);
                this.repaint();
@@ -513,7 +508,6 @@ export default class Shotify {
     }
 
     private updateDrawing(state: boolean = false, emit: boolean = true) {
-        // this.options.dialogContainer.style.display = state ? "block": "none";
         this.emitEvent('drawing', state);
     }
 

@@ -25,6 +25,7 @@ export interface ShotOptions {
     dialogContainer: HTMLElement;
     ignoreElements?: HTMLElement[];
     update?: Function;
+    classes: { [key: string]: string; };
 }
 
 export interface ShotArea {
