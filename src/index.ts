@@ -364,6 +364,7 @@ export default class Shotify {
     private showToolBar = () => {
         this.isDrawingAllowed = true;
         this.drawingContainer.classList.add("active");
+        this.toolbarAlertInfo();
 
         // this.options.dialogContainer.style.display = "none";
         this.updateDrawing(false)
@@ -591,6 +592,19 @@ export default class Shotify {
             this.drawingCTX.strokeRect(x, y, width, height);
             this.drawingCTX.lineWidth = 1;
         }
+    }
+
+    private toolbarAlertInfo() {
+        const alertInfoElem = document.createElement('div');
+        alertInfoElem.className += this.options.classes.alert;
+        alertInfoElem.setAttribute("data-html2canvas-ignore", "true");
+        alertInfoElem.innerText = 'Draw using yellow to highlight issues or black to hide sensitive info';
+        this.rootContainer.appendChild(alertInfoElem);
+
+        setTimeout(() => {
+            this.rootContainer.removeChild(alertInfoElem);
+        }, 3000)
+            
     }
 
     private paintArea(annotationType: AnnotationType = AnnotationType.Highlight) {
