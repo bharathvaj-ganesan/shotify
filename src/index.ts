@@ -68,6 +68,7 @@ export default class Shotify {
     private rootContainer: HTMLDivElement;
     private drawingCTX: CanvasRenderingContext2D | null;
     private isProcessing: boolean = false;
+    private isAlertInfoShown: boolean = false;
 
     private html2canvasOptions: HTML2CanvasOptions;
     private options: ShotOptions;
@@ -595,6 +596,10 @@ export default class Shotify {
     }
 
     private toolbarAlertInfo() {
+        if (this.isAlertInfoShown) {
+            return;
+        }
+        this.isAlertInfoShown = true;
         const alertInfoElem = document.createElement('div');
         alertInfoElem.className += this.options.classes.alert;
         alertInfoElem.setAttribute("data-html2canvas-ignore", "true");
