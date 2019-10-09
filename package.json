@@ -10,6 +10,7 @@
     "devDependencies": {
         "rollup": "1.23.1",
         "rollup-plugin-typescript2": "0.24.3",
+        "semantic-release": "^15.13.24",
         "typescript": "3.6.3"
     },
     "files": [
@@ -22,5 +23,16 @@
     },
     "dependencies": {
         "html2canvas": "1.0.0-rc.5"
-    }
+    },
+    "keywords": [
+        "html2canvas",
+        "screenshot",
+        "highlight",
+        "blackout",
+        "feedback"
+    ],
+    "bugs": {
+        "url": "https://github.com/bharathvaj1995/shotify/issues"
+    },
+    "homepage": "https://github.com/bharathvaj1995/shotify#readme"
 }
