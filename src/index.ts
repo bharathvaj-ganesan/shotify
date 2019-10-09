@@ -502,6 +502,7 @@ export default class Shotify {
                this.previewCanvas = this.options.previewContainer.appendChild(canvas);
                this.repaint();
                this.updateProcessing();
+               this.emitEvent('processed', this.previewCanvas.toDataURL());
            }, 500);
         }).catch(() => {
             this.updateProcessing();
