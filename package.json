@@ -9,6 +9,7 @@
     "license": "MIT",
     "devDependencies": {
         "rollup": "1.23.1",
+        "rollup-plugin-terser": "^5.1.2",
         "rollup-plugin-typescript2": "0.24.3",
         "semantic-release": "^15.13.24",
         "typescript": "3.6.3"

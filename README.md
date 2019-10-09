@@ -13,9 +13,22 @@ The rendered image may not be 100% accurate but should be fine for sending feedb
 
 ### CDN
 
+```js
+<script src="https://cdn.jsdelivr.net/npm/shotify/lib/index.min.js"></script>
+```
+
 
 ### NPM
 
+```js
+
+npm install shotify
+
+// or
+
+yarn add shotify
+
+```
 
 ## API
 
