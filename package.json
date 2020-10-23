@@ -1,6 +1,6 @@
 {
     "name": "shotify",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Allow users to give feedback with highlighted screenshots",
     "module": "lib/index.esm.js",
     "main": "lib/index.js",
